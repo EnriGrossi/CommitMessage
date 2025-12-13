@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Offline Git Commit Message Generator using node-llama-cpp",
   "main": "index.js",
+  "bin": {
+    "ai-commit": "./index.js"
+  },
   "type": "module",
   "scripts": {
     "start": "node index.js"
