@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Local Models (Large files)
+models/
+*.gguf
+
+# Environment
+.env
+
+# Logs
+npm-debug.log
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
