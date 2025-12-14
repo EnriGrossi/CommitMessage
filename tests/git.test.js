@@ -28,7 +28,12 @@ describe('Git Module', () => {
 
         const diff = await getStagedDiff();
 
-        expect(mGit.diff).toHaveBeenCalledWith(['--cached']);
+        expect(mGit.diff).toHaveBeenCalledWith([
+            '--cached',
+            ':(exclude)package-lock.json',
+            ':(exclude)yarn.lock',
+            ':(exclude)pnpm-lock.yaml'
+        ]);
         expect(diff).toBe('mock diff content');
     });
 
