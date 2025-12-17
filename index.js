@@ -53,46 +53,77 @@ async function main() {
         const totalSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
         spinner.succeed(`Generated in ${totalSeconds}s`);
 
-        console.log(chalk.green('\n📝 Proposed Commit Message:'));
-        console.log(chalk.bold.white(generatedMessage));
-        console.log('');
+        let currentMessage = generatedMessage;
+        let continueLoop = true;
 
-        // 4. User Interaction
-        const { action } = await inquirer.prompt([
-            {
-                type: 'list',
-                name: 'action',
-                message: 'What would you like to do?',
-                choices: [
-                    { name: '✅ Commit with this message', value: 'commit' },
-                    { name: '✏️  Edit message', value: 'edit' },
-                    { name: '❌ Cancel', value: 'cancel' }
-                ]
-            }
-        ]);
+        while (continueLoop) {
+            console.log(chalk.green('\n📝 Proposed Commit Message:'));
+            console.log(chalk.bold.white(currentMessage));
+            console.log('');
 
-        if (action === 'commit') {
-            await commitChanges(generatedMessage);
-            console.log(chalk.green('✔ Committed successfully!'));
-        } else if (action === 'edit') {
-            const { newMessage } = await inquirer.prompt([
+            // 4. User Interaction
+            const { action } = await inquirer.prompt([
                 {
-                    type: 'editor',
-                    name: 'newMessage',
-                    message: 'Edit your commit message:',
-                    default: generatedMessage,
-                    waitUserInput: true
+                    type: 'list',
+                    name: 'action',
+                    message: 'What would you like to do?',
+                    choices: [
+                        { name: '✅ Commit with this message', value: 'commit' },
+                        { name: '🔄 Regenerate message', value: 'regenerate' },
+                        { name: '✏️  Edit message', value: 'edit' },
+                        { name: '❌ Cancel', value: 'cancel' }
+                    ]
                 }
             ]);
 
-            if (newMessage && newMessage.trim()) {
-                await commitChanges(newMessage.trim());
+            if (action === 'commit') {
+                await commitChanges(currentMessage);
                 console.log(chalk.green('✔ Committed successfully!'));
+                continueLoop = false;
+            } else if (action === 'regenerate') {
+                console.log(chalk.cyan('🔄 Regenerating commit message...\n'));
+                const spinner = ora('Initializing AI...').start();
+                const startTime = Date.now();
+
+                // Update spinner every second
+                const timerInterval = setInterval(() => {
+                    const seconds = Math.floor((Date.now() - startTime) / 1000);
+                    let timeStr = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+                    spinner.text = `Regenerating... [${timeStr}]`;
+                }, 1000);
+
+                currentMessage = await generateCommitMessage(modelPath, diff, (stage, detail) => {
+                    const seconds = Math.floor((Date.now() - startTime) / 1000);
+                    let timeStr = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+                    spinner.text = `${detail} [${timeStr}]`;
+                });
+
+                clearInterval(timerInterval);
+                const totalSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
+                spinner.succeed(`Regenerated in ${totalSeconds}s`);
+            } else if (action === 'edit') {
+                const { newMessage } = await inquirer.prompt([
+                    {
+                        type: 'editor',
+                        name: 'newMessage',
+                        message: 'Edit your commit message:',
+                        default: currentMessage,
+                        waitUserInput: true
+                    }
+                ]);
+
+                if (newMessage && newMessage.trim()) {
+                    await commitChanges(newMessage.trim());
+                    console.log(chalk.green('✔ Committed successfully!'));
+                    continueLoop = false;
+                } else {
+                    console.log(chalk.yellow('Commit cancelled (empty message).'));
+                    continueLoop = false;
+                }
             } else {
-                console.log(chalk.yellow('Commit cancelled (empty message).'));
+                console.log(chalk.gray('Operation cancelled.'));
+                continueLoop = false;
             }
-        } else {
-            console.log(chalk.gray('Operation cancelled.'));
         }
 
     } catch (error) {
