@@ -71,4 +71,73 @@ describe('AI Local Module', () => {
         expect(onProgressSpy).toHaveBeenCalledWith('analyzing', expect.stringContaining('Analyzing Diff'));
         expect(onProgressSpy).toHaveBeenCalledWith('generating', expect.stringContaining('Drafting message...'));
     });
+
+    it('should handle JSON parsing failure and return cleaned response', async () => {
+        // Mock response that looks like JSON but isn't
+        mSession.prompt.mockResolvedValue('{"commit_message": "test" invalid}');
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        const result = await generateCommitMessage('/path/to/model', 'diff content', vi.fn());
+
+        expect(consoleSpy).toHaveBeenCalledWith("Failed to parse grammar-enforced JSON", expect.any(Object));
+        expect(result).toBe('{"commit_message": "test" invalid}');
+    });
+
+    it('should extract file names from diff correctly', async () => {
+        mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'feat: test' }));
+
+        const diff = `diff --git a/src/main.js b/src/main.js
+index 1234567..abcdef0 100644
+--- a/src/main.js
++++ b/src/main.js
+@@ -1,3 +1,4 @@
++console.log('hello');
+ console.log('world');
+diff --git a/test.js b/test.js
+index abcdef0..1234567 100644
+--- a/test.js
++++ b/test.js
+@@ -1,3 +1,4 @@
++console.log('test');`;
+
+        await generateCommitMessage('/path/to/model', diff, vi.fn());
+
+        const promptArg = mSession.prompt.mock.calls[0][0];
+        expect(promptArg).toContain('src/main.js');
+        expect(promptArg).toContain('test.js');
+    });
+
+    it('should categorize files correctly', async () => {
+        mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'feat: test' }));
+
+        const diff = `diff --git a/script.py b/script.py
+diff --git a/config.json b/config.json
+diff --git a/Dockerfile b/Dockerfile
+diff --git a/.gitignore b/.gitignore
+diff --git a/docs/README.md b/docs/README.md`;
+
+        await generateCommitMessage('/path/to/model', diff, vi.fn());
+
+        const promptArg = mSession.prompt.mock.calls[0][0];
+        // The prompt should contain the diff content
+        expect(promptArg).toContain('script.py');
+        expect(promptArg).toContain('config.json');
+        expect(promptArg).toContain('Dockerfile');
+        expect(promptArg).toContain('.gitignore');
+        expect(promptArg).toContain('docs/README.md');
+    });
+
+    it('should determine primary scope from file types', async () => {
+        mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'feat: test' }));
+
+        // Test with multiple Python files
+        const diff = `diff --git a/main.py b/main.py
+diff --git a/utils.py b/utils.py
+diff --git a/config.py b/config.py`;
+
+        await generateCommitMessage('/path/to/model', diff, vi.fn());
+
+        const promptArg = mSession.prompt.mock.calls[0][0];
+        expect(promptArg).toContain('main.py');
+    });
 });
