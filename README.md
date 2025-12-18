@@ -3,7 +3,7 @@
 A command-line tool that uses a local AI model to automatically generate Conventional Commit messages from your staged changes.
 
 ## 🚀 Features
-- **100% Offline**: Runs locally using `node-llama-cpp` and `Qwen2.5-Coder-1.5B` with enhanced generation.
+- **100% Offline**: Runs locally using `node-llama-cpp` and `Qwen 3 4B` (with fallback to Qwen2.5-Coder-1.5B).
 - **Private**: Your code never leaves your machine.
 - **Fast**: Optimized single-pass analysis (~20s generation).
 - **Conventional Commits**: Enforces specific style (feat, fix, chore, etc.) via Grammar.
@@ -13,7 +13,7 @@ A command-line tool that uses a local AI model to automatically generate Convent
 ## 📋 Prerequisites
 - **Node.js**: Version 18+ recommended.
 - **Git**: Installed and available in PATH.
-- **Internet**: Required only for the *first run* to download the AI model (~1.0 GB).
+- **Internet**: Required only for the *first run* to download the AI model (~2.5 GB).
 
 ## 🛠️ Installation (New PC)
 
@@ -60,10 +60,11 @@ A command-line tool that uses a local AI model to automatically generate Convent
    - You can **Confirm**, **Regenerate**, **Edit**, or **Cancel**.
 
 ## 🧠 Model Information
-The tool automatically manages the model file.
-- **Model**: Qwen2.5-Coder-1.5B-Instruct-GGUF (Enhanced)
+The tool automatically manages the model file and tries to use the best available model.
+- **Primary Model**: Qwen 3 4B (Q4_K_M quantization)
+- **Fallback Model**: Qwen2.5-Coder-1.5B-Instruct-GGUF (Enhanced)
 - **Location**: `/models/model.gguf` inside the project folder.
-- **Size**: ~980 MB
+- **Size**: ~2.0-2.5 GB (depending on which model is downloaded)
 - **Enhancements**: Higher temperature (0.8) and random seed generation for better regeneration variety
 
 ## ⚠️ Troubleshooting
