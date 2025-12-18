@@ -125,7 +125,7 @@ program
                         }
                     ]);
 
-                    if (newMessage && newMessage.trim()) {
+                    if (newMessage?.trim()) {
                         await commitChanges(newMessage.trim());
                         console.log(chalk.green('✔ Committed successfully!'));
                         continueLoop = false;

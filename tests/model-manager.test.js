@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ensureModelExists, getAvailableModels } from '../lib/model-manager.js';
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
 
 vi.mock('fs');
 vi.mock('axios');
