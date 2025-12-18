@@ -47,7 +47,7 @@ A command-line tool that uses a local AI model to automatically generate Convent
    ```bash
    ai-commit
    ```
-   
+
    *Or locally:*
    ```bash
    npm start
@@ -58,6 +58,14 @@ A command-line tool that uses a local AI model to automatically generate Convent
    - It will analyze your staged changes.
    - It will propose a commit message.
    - You can **Confirm**, **Regenerate**, **Edit**, or **Cancel**.
+
+### 🛠️ Commands
+
+- **`ai-commit`** (default): Generate a commit message from staged changes
+- **`ai-commit set-model <model> [--insecure]`**: Set the AI model to use (`qwen3` or `qwen2.5`)
+  - `--insecure`: Skip SSL certificate verification during download (useful for self-signed certificates)
+- **`ai-commit help`**: Show available commands and current model
+- **`ai-commit --version`**: Show version information
 
 ## 🧠 Model Information
 The tool automatically manages the model file and tries to use the best available model.
