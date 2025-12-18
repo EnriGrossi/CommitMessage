@@ -44,4 +44,10 @@ describe('Git Module', () => {
 
         expect(mGit.commit).toHaveBeenCalledWith('feat: test commit');
     });
+
+    it('getStagedDiff should throw error if not a git repository', async () => {
+        mGit.checkIsRepo.mockResolvedValue(false);
+
+        await expect(getStagedDiff()).rejects.toThrow('Not a git repository');
+    });
 });

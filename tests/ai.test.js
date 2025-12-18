@@ -49,4 +49,26 @@ describe('AI Local Module', () => {
         const promptArg = mSession.prompt.mock.calls[0][0];
         expect(promptArg).toContain('(Diff truncated for performance)');
     });
+
+    it('should handle invalid JSON response and return cleaned response', async () => {
+        // Mock invalid JSON response
+        mSession.prompt.mockResolvedValue('invalid json response');
+
+        const result = await generateCommitMessage('/path/to/model', 'diff content', vi.fn());
+
+        expect(result).toBe('invalid json response');
+    });
+
+    it('should call onProgress callback with updates', async () => {
+        mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'feat: test' }));
+        const onProgressSpy = vi.fn();
+
+        await generateCommitMessage('/path/to/model', 'diff content', onProgressSpy);
+
+        // Should have called onProgress multiple times
+        expect(onProgressSpy).toHaveBeenCalledWith('loading', expect.stringContaining('Loading AI Model...'));
+        expect(onProgressSpy).toHaveBeenCalledWith('context', expect.stringContaining('Creating Context Window...'));
+        expect(onProgressSpy).toHaveBeenCalledWith('analyzing', expect.stringContaining('Analyzing Diff'));
+        expect(onProgressSpy).toHaveBeenCalledWith('generating', expect.stringContaining('Drafting message...'));
+    });
 });
