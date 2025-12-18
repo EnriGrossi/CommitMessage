@@ -189,4 +189,45 @@ describe('Model Manager', () => {
         // Note: Number.parseInt('invalid', 10) returns NaN, which is handled as null since expectedSize will be NaN ? null : null -> null
         parseIntSpy.mockRestore();
     });
+
+    it('should use specified modelKey instead of default', async () => {
+        // Mock fs for existing complete model
+        vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1024 * 1024 * 100 });
+
+        const modelPath = await ensureModelExists('qwen2.5');
+
+        expect(modelPath).toContain('qwen2.5-coder-1.5b.gguf');
+        expect(fs.existsSync).toHaveBeenCalled();
+        expect(fs.statSync).toHaveBeenCalled();
+    });
+
+    it('should re-download model file that is exactly 1MB', async () => {
+        // Mock existsSync to return true, statSync to return exactly 1MB, and unlinkSync
+        vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1024 * 1024 }); // Exactly 1MB
+        const unlinkSpy = vi.spyOn(fs, 'unlinkSync').mockImplementation(() => {});
+
+        // Mock axios
+        const mockAxios = vi.mocked(await import('axios'));
+        mockAxios.default = vi.fn().mockResolvedValue({
+            data: { pipe: vi.fn(), on: vi.fn() },
+            headers: { 'content-length': '1000' }
+        });
+
+        // Mock cli-progress
+        vi.mocked(await import('cli-progress')).SingleBar = vi.fn().mockImplementation(() => ({
+            start: vi.fn(),
+            update: vi.fn(),
+            stop: vi.fn()
+        }));
+
+        try {
+            await ensureModelExists();
+        } catch (error) {
+            // Expected to fail in test environment
+        }
+
+        expect(unlinkSpy).toHaveBeenCalled();
+    });
 });
