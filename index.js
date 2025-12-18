@@ -19,6 +19,11 @@ program
     .action(async () => {
         console.log(chalk.bold.cyan('\n 🤖 Offline AI Commit Message Generator \n'));
 
+        // Show current model
+        const currentModel = getAvailableModels().find(m => m.key === getSelectedModel());
+        console.log(chalk.blue(`📋 Using model: ${currentModel?.name || 'Unknown'}`));
+        console.log('');
+
         try {
             // 1. Ensure Model Exists
             // limit spinner usage here as the download has its own progress bar

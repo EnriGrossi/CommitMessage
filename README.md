@@ -77,4 +77,5 @@ The tool automatically manages the model file and tries to use the best availabl
 
 ## ⚠️ Troubleshooting
 - **"ai-commit command not found"**: Try restarting your terminal after running `npm link`.
-- **Download Fails**: Delete the `models` folder and retry. The tool supports resuming/retrying.
+- **Download Fails**: Delete the `models` folder and retry. The tool supports resuming/retrying and automatically detects/removes incomplete downloads.
+- **SSL Certificate Issues**: Use `ai-commit set-model <model> --insecure` to bypass SSL verification during download.

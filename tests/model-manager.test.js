@@ -15,28 +15,65 @@ describe('Model Manager', () => {
         vi.clearAllMocks();
     });
 
-    it('should return model path if it exists', async () => {
-        // Mock existsSync to return true for model path
+    it('should return model path if it exists and is complete', async () => {
+        // Mock existsSync to return true and statSync to return a large file size
         vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1024 * 1024 * 100 }); // 100MB
 
         const modelPath = await ensureModelExists();
 
         // Should contain the qwen3 model filename
         expect(modelPath).toContain('qwen3-4b.gguf');
         expect(fs.existsSync).toHaveBeenCalled();
+        expect(fs.statSync).toHaveBeenCalled();
+    });
+
+    it('should remove and re-download incomplete model file', async () => {
+        // Mock existsSync to return true, statSync to return small file size, and unlinkSync
+        vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 100 }); // Small incomplete file
+        const unlinkSpy = vi.spyOn(fs, 'unlinkSync').mockImplementation(() => {});
+
+        // Mock axios for download
+        const mockAxios = vi.mocked(await import('axios'));
+        mockAxios.default = {
+            get: vi.fn().mockResolvedValue({
+                data: { pipe: vi.fn(), on: vi.fn() },
+                headers: { 'content-length': '1000' }
+            })
+        };
+
+        // Mock cli-progress
+        vi.mocked(await import('cli-progress')).SingleBar = vi.fn().mockImplementation(() => ({
+            start: vi.fn(),
+            update: vi.fn(),
+            stop: vi.fn()
+        }));
+
+        try {
+            await ensureModelExists();
+        } catch (error) {
+            // Expected to fail in test environment, but should have tried to remove file
+        }
+
+        expect(unlinkSpy).toHaveBeenCalled();
     });
 
     it('should create directory if model missing', async () => {
-        // First check (dir) false, Second check (file) false...
-        // Actually ensureModelExists checks dir first.
-        // We want to test the download path, but ensureModelExists calls downloadFile which streams.
-        // Mocking the stream is complex.
-        // Simplified test: verify it tries to verify directory existence.
+        // Mock fs to simulate missing model directory and file
+        vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+        const mkdirSpy = vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
+        const statSpy = vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1024 * 1024 * 100 }); // Mock complete file
 
-        vi.spyOn(fs, 'existsSync').mockReturnValue(true); // Pretend existing for now to skip download logic in unit test
+        // This test will try to download, but we just want to test directory creation
+        // In a real scenario, it would proceed to download
+        try {
+            await ensureModelExists();
+        } catch (error) {
+            // Expected to fail in test environment due to axios mocking
+        }
 
-        const result = await ensureModelExists();
-        expect(result).toBeTruthy();
+        expect(mkdirSpy).toHaveBeenCalled();
     });
 
     it('should get available models', () => {
