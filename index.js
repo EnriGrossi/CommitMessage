@@ -38,32 +38,32 @@ program
 
             // 3. Generate Message
             let currentStage = 'Initializing AI...';
-            const startTime = Date.now();
+            const globalStartTime = Date.now();
             const spinner = ora(currentStage).start();
 
             // Update spinner every second
             const timerInterval = setInterval(() => {
-                const seconds = Math.floor((Date.now() - startTime) / 1000);
-                let timeStr;
-                if (seconds < 60) timeStr = `${seconds}s`;
+                const globalSeconds = Math.floor((Date.now() - globalStartTime) / 1000);
+                let globalTimeStr;
+                if (globalSeconds < 60) globalTimeStr = `${globalSeconds}s`;
                 else {
-                    const mins = Math.floor(seconds / 60);
-                    const secs = seconds % 60;
-                    timeStr = `${mins}m ${secs}s`;
+                    const mins = Math.floor(globalSeconds / 60);
+                    const secs = globalSeconds % 60;
+                    globalTimeStr = `${mins}m ${secs}s`;
                 }
-                spinner.text = `${currentStage} [${timeStr}]`;
+                spinner.text = `${currentStage} [${globalTimeStr}]`;
             }, 1000);
 
             const generatedMessage = await generateCommitMessage(modelPath, diff, (stage, detail) => {
                 currentStage = detail;
                 // Immediate update for responsiveness
-                const seconds = Math.floor((Date.now() - startTime) / 1000);
-                let timeStr = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-                spinner.text = `${currentStage} [${timeStr}]`;
+                const globalSeconds = Math.floor((Date.now() - globalStartTime) / 1000);
+                let globalTimeStr = globalSeconds < 60 ? `${globalSeconds}s` : `${Math.floor(globalSeconds / 60)}m ${globalSeconds % 60}s`;
+                spinner.text = `${currentStage} [${globalTimeStr}]`;
             });
 
             clearInterval(timerInterval);
-            const totalSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
+            const totalSeconds = ((Date.now() - globalStartTime) / 1000).toFixed(1);
             spinner.succeed(`Generated in ${totalSeconds}s`);
 
             let currentMessage = generatedMessage;
@@ -96,24 +96,24 @@ program
                 } else if (action === 'regenerate') {
                     console.log(chalk.cyan('🔄 Regenerating commit message...\n'));
                     const spinner = ora('Initializing AI...').start();
-                    const startTime = Date.now();
+                    const regenerateStartTime = Date.now();
 
                     // Update spinner every second
                     const timerInterval = setInterval(() => {
-                        const seconds = Math.floor((Date.now() - startTime) / 1000);
-                        let timeStr = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-                        spinner.text = `Regenerating... [${timeStr}]`;
+                        const globalSeconds = Math.floor((Date.now() - globalStartTime) / 1000);
+                        let globalTimeStr = globalSeconds < 60 ? `${globalSeconds}s` : `${Math.floor(globalSeconds / 60)}m ${globalSeconds % 60}s`;
+                        spinner.text = `Regenerating... [${globalTimeStr}]`;
                     }, 1000);
 
                     currentMessage = await generateCommitMessage(modelPath, diff, (stage, detail) => {
-                        const seconds = Math.floor((Date.now() - startTime) / 1000);
-                        let timeStr = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-                        spinner.text = `${detail} [${timeStr}]`;
+                        const globalSeconds = Math.floor((Date.now() - globalStartTime) / 1000);
+                        let globalTimeStr = globalSeconds < 60 ? `${globalSeconds}s` : `${Math.floor(globalSeconds / 60)}m ${globalSeconds % 60}s`;
+                        spinner.text = `${detail} [${globalTimeStr}]`;
                     });
 
                     clearInterval(timerInterval);
-                    const totalSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
-                    spinner.succeed(`Regenerated in ${totalSeconds}s`);
+                    const regenerateSeconds = ((Date.now() - regenerateStartTime) / 1000).toFixed(1);
+                    spinner.succeed(`Regenerated in ${regenerateSeconds}s`);
                 } else if (action === 'edit') {
                     const { newMessage } = await inquirer.prompt([
                         {
