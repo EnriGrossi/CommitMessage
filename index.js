@@ -56,10 +56,7 @@ program
 
             const generatedMessage = await generateCommitMessage(modelPath, diff, (stage, detail) => {
                 currentStage = detail;
-                // Immediate update for responsiveness
-                const globalSeconds = Math.floor((Date.now() - globalStartTime) / 1000);
-                let globalTimeStr = globalSeconds < 60 ? `${globalSeconds}s` : `${Math.floor(globalSeconds / 60)}m ${globalSeconds % 60}s`;
-                spinner.text = `${currentStage} [${globalTimeStr}]`;
+                // Timer globale continuerà ad aggiornare il tempo totale
             });
 
             clearInterval(timerInterval);
