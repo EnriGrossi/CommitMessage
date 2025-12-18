@@ -5,6 +5,9 @@ import fs from 'node:fs';
 vi.mock('fs');
 vi.mock('axios');
 vi.mock('cli-progress');
+vi.mock('node:https', () => ({
+    Agent: vi.fn()
+}));
 vi.mock('../lib/config.js', () => ({
     getSelectedModel: vi.fn(() => 'qwen3')
 }));
@@ -229,5 +232,37 @@ describe('Model Manager', () => {
         }
 
         expect(unlinkSpy).toHaveBeenCalled();
+    });
+
+    it('should handle skipSSLVerification parameter', async () => {
+        // Mock fs for missing model
+        vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+        vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
+        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1000 });
+
+        // Mock axios
+        const mockAxios = vi.mocked(await import('axios'));
+        mockAxios.default = vi.fn().mockResolvedValue({
+            data: { pipe: vi.fn(), on: vi.fn() },
+            headers: { 'content-length': '1000' }
+        });
+
+        // Mock cli-progress
+        vi.mocked(await import('cli-progress')).SingleBar = vi.fn().mockImplementation(() => ({
+            start: vi.fn(),
+            update: vi.fn(),
+            stop: vi.fn()
+        }));
+
+        // Import the mocked Agent
+        const { Agent: MockAgent } = await import('node:https');
+
+        try {
+            await ensureModelExists('qwen3', true); // skipSSLVerification = true
+        } catch (error) {
+            // Expected to fail in test environment
+        }
+
+        expect(MockAgent).toHaveBeenCalledWith({ rejectUnauthorized: false });
     });
 });
