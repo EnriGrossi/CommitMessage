@@ -55,7 +55,8 @@ describe('Model Manager', () => {
         try {
             await ensureModelExists();
         } catch (error) {
-            // Expected to fail in test environment, but should have tried to remove file
+            console.log('Expected to fail in test environment, but should have tried to remove file');
+            expect(error).toBeDefined();
         }
 
         expect(unlinkSpy).toHaveBeenCalled();
@@ -65,14 +66,15 @@ describe('Model Manager', () => {
         // Mock fs to simulate missing model directory and file
         vi.spyOn(fs, 'existsSync').mockReturnValue(false);
         const mkdirSpy = vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
-        const statSpy = vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1024 * 1024 * 100 }); // Mock complete file
+        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1024 * 1024 * 100 }); // Mock complete file
 
         // This test will try to download, but we just want to test directory creation
         // In a real scenario, it would proceed to download
         try {
             await ensureModelExists();
         } catch (error) {
-            // Expected to fail in test environment due to axios mocking
+            console.log('Expected to fail in test environment due to axios mocking');
+            expect(error).toBeDefined();
         }
 
         expect(mkdirSpy).toHaveBeenCalled();
@@ -119,7 +121,8 @@ describe('Model Manager', () => {
         try {
             await ensureModelExists();
         } catch (error) {
-            // Expected to fail in test environment
+            console.log('Expected to fail in test environment');
+            expect(error).toBeDefined();
         }
 
         expect(parseIntSpy).toHaveBeenCalledWith('12345', 10);
@@ -152,7 +155,8 @@ describe('Model Manager', () => {
         try {
             await ensureModelExists();
         } catch (error) {
-            // Expected to fail in test environment
+            console.log('Expected to fail in test environment');
+            expect(error).toBeDefined();
         }
 
         expect(parseIntSpy).not.toHaveBeenCalled();
@@ -185,7 +189,8 @@ describe('Model Manager', () => {
         try {
             await ensureModelExists();
         } catch (error) {
-            // Expected to fail in test environment
+            console.log('Expected to fail in test environment');
+            expect(error).toBeDefined();
         }
 
         expect(parseIntSpy).toHaveBeenCalledWith('invalid', 10);
@@ -228,7 +233,8 @@ describe('Model Manager', () => {
         try {
             await ensureModelExists();
         } catch (error) {
-            // Expected to fail in test environment
+            console.log('Expected to fail in test environment');
+            expect(error).toBeDefined();
         }
 
         expect(unlinkSpy).toHaveBeenCalled();
@@ -260,7 +266,8 @@ describe('Model Manager', () => {
         try {
             await ensureModelExists('qwen3', true); // skipSSLVerification = true
         } catch (error) {
-            // Expected to fail in test environment
+            console.log('Expected to fail in test environment');
+            expect(error).toBeDefined();
         }
 
         expect(MockAgent).toHaveBeenCalledWith({ rejectUnauthorized: false });
@@ -310,7 +317,8 @@ describe('Model Manager', () => {
         try {
             await ensureModelExists('qwen3');
         } catch (error) {
-            // Expected to fail in test environment due to mocking
+            console.log('Expected to fail in test environment due to mocking');
+            expect(error).toBeDefined();
         }
     });
 
@@ -338,7 +346,8 @@ describe('Model Manager', () => {
         try {
             await ensureModelExists('qwen3');
         } catch (error) {
-            // Expected to fail in test environment
+            console.log('Expected to fail in test environment');
+            expect(error).toBeDefined();
         }
     });
 

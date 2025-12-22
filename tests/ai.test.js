@@ -39,7 +39,7 @@ describe('AI Local Module', () => {
 
     it('should handle truncation for large diffs', async () => {
         mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'test' }));
-        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
+        vi.spyOn(console, 'warn').mockImplementation(() => { });
 
         // Create large diff > 24000 chars
         const largeDiff = 'a'.repeat(30000);
