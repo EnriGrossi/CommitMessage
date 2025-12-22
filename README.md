@@ -7,8 +7,9 @@ A command-line tool that uses a local AI model to automatically generate Convent
 - **Private**: Your code never leaves your machine.
 - **Fast**: Optimized single-pass analysis (~20s generation).
 - **Conventional Commits**: Enforces specific style (feat, fix, chore, etc.) via Grammar.
-- **Interactive**: Review, edit, regenerate, or cancel generated messages.
+- **Interactive**: Review, edit, regenerate, suggest improvements, or cancel generated messages.
 - **Smart Regeneration**: Improved AI parameters for diverse commit message suggestions.
+- **Suggestion System**: Provide feedback on generated messages to get AI-refined improvements.
 
 ## 📋 Prerequisites
 - **Node.js**: Version 18+ recommended.

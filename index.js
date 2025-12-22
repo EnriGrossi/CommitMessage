@@ -6,7 +6,7 @@ import inquirer from 'inquirer';
 import ora from 'ora';
 import { ensureModelExists, getAvailableModels } from './lib/model-manager.js';
 import { getStagedDiff, commitChanges } from './lib/git.js';
-import { generateCommitMessage } from './lib/ai-local.js';
+import { generateCommitMessage, refineCommitMessage } from './lib/ai-local.js';
 import { setSelectedModel, getSelectedModel } from './lib/config.js';
 
 const program = new Command();
@@ -80,6 +80,7 @@ program
                         choices: [
                             { name: '✅ Commit with this message', value: 'commit' },
                             { name: '🔄 Regenerate message', value: 'regenerate' },
+                            { name: '💬 Suggest improvements', value: 'suggest' },
                             { name: '✏️  Edit message', value: 'edit' },
                             { name: '❌ Cancel', value: 'cancel' }
                         ]
@@ -111,6 +112,38 @@ program
                     clearInterval(timerInterval);
                     const regenerateSeconds = ((Date.now() - regenerateStartTime) / 1000).toFixed(1);
                     spinner.succeed(`Regenerated in ${regenerateSeconds}s`);
+                } else if (action === 'suggest') {
+                    const { feedback } = await inquirer.prompt([
+                        {
+                            type: 'input',
+                            name: 'feedback',
+                            message: 'What would you like to improve about this message?',
+                            validate: (input) => input.trim().length > 0 || 'Please provide feedback to suggest improvements.'
+                        }
+                    ]);
+
+                    if (feedback?.trim()) {
+                        console.log(chalk.cyan('💬 Refining commit message based on your feedback...\n'));
+                        const spinner = ora('Initializing AI...').start();
+                        const suggestStartTime = Date.now();
+
+                        // Update spinner every second
+                        const timerInterval = setInterval(() => {
+                            const globalSeconds = Math.floor((Date.now() - globalStartTime) / 1000);
+                            let globalTimeStr = globalSeconds < 60 ? `${globalSeconds}s` : `${Math.floor(globalSeconds / 60)}m ${globalSeconds % 60}s`;
+                            spinner.text = `Refining... [${globalTimeStr}]`;
+                        }, 1000);
+
+                        currentMessage = await refineCommitMessage(modelPath, currentMessage, feedback.trim(), diff, (stage, detail) => {
+                            const globalSeconds = Math.floor((Date.now() - globalStartTime) / 1000);
+                            let globalTimeStr = globalSeconds < 60 ? `${globalSeconds}s` : `${Math.floor(globalSeconds / 60)}m ${globalSeconds % 60}s`;
+                            spinner.text = `${detail} [${globalTimeStr}]`;
+                        });
+
+                        clearInterval(timerInterval);
+                        const suggestSeconds = ((Date.now() - suggestStartTime) / 1000).toFixed(1);
+                        spinner.succeed(`Refined in ${suggestSeconds}s`);
+                    }
                 } else if (action === 'edit') {
                     const { newMessage } = await inquirer.prompt([
                         {

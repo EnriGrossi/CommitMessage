@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { generateCommitMessage } from '../lib/ai-local.js';
+import { generateCommitMessage, refineCommitMessage } from '../lib/ai-local.js';
 
 // Mock objects using vi.hoisted
 const { mSession, mLlama, mContext, mModel } = vi.hoisted(() => {
@@ -139,5 +139,64 @@ diff --git a/config.py b/config.py`;
 
         const promptArg = mSession.prompt.mock.calls[0][0];
         expect(promptArg).toContain('main.py');
+    });
+
+    describe('refineCommitMessage', () => {
+        it('should return parsed refined message', async () => {
+            const mockResponse = JSON.stringify({ refined_message: 'feat: improved commit' });
+            mSession.prompt.mockResolvedValue(mockResponse);
+
+            const result = await refineCommitMessage('/path/to/model', 'feat: original', 'make it more specific', 'diff content', vi.fn());
+
+            expect(mLlama.loadModel).toHaveBeenCalledWith({ modelPath: '/path/to/model' });
+            expect(mSession.prompt).toHaveBeenCalled();
+            expect(result).toBe('feat: improved commit');
+        });
+
+        it('should handle truncation for large diffs in refinement', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ refined_message: 'feat: test' }));
+
+            // Create large diff > 12000 chars
+            const largeDiff = 'a'.repeat(15000);
+            await refineCommitMessage('model', 'feat: original', 'feedback', largeDiff, vi.fn());
+
+            const promptArg = mSession.prompt.mock.calls[0][0];
+            expect(promptArg).toContain('(Diff truncated for performance)');
+        });
+
+        it('should call onProgress callback with refinement updates', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ refined_message: 'feat: test' }));
+            const onProgressSpy = vi.fn();
+
+            await refineCommitMessage('/path/to/model', 'feat: original', 'feedback', 'diff', onProgressSpy);
+
+            expect(onProgressSpy).toHaveBeenCalledWith('loading', expect.stringContaining('Loading AI Model for refinement...'));
+            expect(onProgressSpy).toHaveBeenCalledWith('context', expect.stringContaining('Creating Context Window...'));
+            expect(onProgressSpy).toHaveBeenCalledWith('refining', expect.stringContaining('Refining message based on feedback...'));
+        });
+
+        it('should include original message, feedback, and diff in prompt', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ refined_message: 'feat: test' }));
+
+            const originalMessage = 'feat: add feature';
+            const userFeedback = 'make it more descriptive';
+            const diffContent = 'diff content here';
+
+            await refineCommitMessage('/path/to/model', originalMessage, userFeedback, diffContent, vi.fn());
+
+            const promptArg = mSession.prompt.mock.calls[0][0];
+            expect(promptArg).toContain(`"${originalMessage}"`);
+            expect(promptArg).toContain(`"${userFeedback}"`);
+            expect(promptArg).toContain(diffContent);
+            expect(promptArg).toContain('PRIORITY: The user\'s feedback is the PRIMARY directive');
+        });
+
+        it('should handle invalid JSON response and return cleaned response', async () => {
+            mSession.prompt.mockResolvedValue('invalid json response');
+
+            const result = await refineCommitMessage('/path/to/model', 'feat: original', 'feedback', 'diff', vi.fn());
+
+            expect(result).toBe('invalid json response');
+        });
     });
 });
