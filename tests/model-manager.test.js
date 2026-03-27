@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ensureModelExists, getAvailableModels } from '../lib/model-manager.js';
+import { ensureModelExists, getAvailableModels, detectHardware, recommendModel } from '../lib/model-manager.js';
 import fs from 'node:fs';
 
 vi.mock('fs');
@@ -9,7 +9,7 @@ vi.mock('node:https', () => ({
     Agent: vi.fn()
 }));
 vi.mock('../lib/config.js', () => ({
-    getSelectedModel: vi.fn(() => 'qwen3')
+    getSelectedModel: vi.fn(() => 'qwen3-4b')
 }));
 
 describe('Model Manager', () => {
@@ -18,25 +18,21 @@ describe('Model Manager', () => {
     });
 
     it('should return model path if it exists and is complete', async () => {
-        // Mock existsSync to return true and statSync to return a large file size
         vi.spyOn(fs, 'existsSync').mockReturnValue(true);
-        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1024 * 1024 * 100 }); // 100MB
+        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1024 * 1024 * 100 });
 
         const modelPath = await ensureModelExists();
 
-        // Should contain the qwen3 model filename
-        expect(modelPath).toContain('qwen3-4b.gguf');
+        expect(modelPath).toContain('qwen3-4b-q4_k_m.gguf');
         expect(fs.existsSync).toHaveBeenCalled();
         expect(fs.statSync).toHaveBeenCalled();
     });
 
     it('should remove and re-download incomplete model file', async () => {
-        // Mock existsSync to return true, statSync to return small file size, and unlinkSync
         vi.spyOn(fs, 'existsSync').mockReturnValue(true);
-        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 100 }); // Small incomplete file
+        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 100 });
         const unlinkSpy = vi.spyOn(fs, 'unlinkSync').mockImplementation(() => {});
 
-        // Mock axios for download
         const mockAxios = vi.mocked(await import('axios'));
         mockAxios.default = {
             get: vi.fn().mockResolvedValue({
@@ -45,11 +41,8 @@ describe('Model Manager', () => {
             })
         };
 
-        // Mock cli-progress
         vi.mocked(await import('cli-progress')).SingleBar = vi.fn().mockImplementation(() => ({
-            start: vi.fn(),
-            update: vi.fn(),
-            stop: vi.fn()
+            start: vi.fn(), update: vi.fn(), stop: vi.fn()
         }));
 
         try {
@@ -63,13 +56,10 @@ describe('Model Manager', () => {
     });
 
     it('should create directory if model missing', async () => {
-        // Mock fs to simulate missing model directory and file
         vi.spyOn(fs, 'existsSync').mockReturnValue(false);
         const mkdirSpy = vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
-        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1024 * 1024 * 100 }); // Mock complete file
+        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1024 * 1024 * 100 });
 
-        // This test will try to download, but we just want to test directory creation
-        // In a real scenario, it would proceed to download
         try {
             await ensureModelExists();
         } catch (error) {
@@ -80,15 +70,21 @@ describe('Model Manager', () => {
         expect(mkdirSpy).toHaveBeenCalled();
     });
 
-    it('should get available models', () => {
+    it('should get available models with all properties', () => {
         const models = getAvailableModels();
-        expect(models).toHaveLength(2);
-        expect(models[0]).toHaveProperty('key', 'qwen3');
-        expect(models[0]).toHaveProperty('name', 'Qwen 3 4B');
-        expect(models[0]).toHaveProperty('filename', 'qwen3-4b.gguf');
-        expect(models[1]).toHaveProperty('key', 'qwen2.5');
-        expect(models[1]).toHaveProperty('name', 'Qwen2.5-Coder-1.5B');
-        expect(models[1]).toHaveProperty('filename', 'qwen2.5-coder-1.5b.gguf');
+        expect(models).toHaveLength(3);
+
+        expect(models[0]).toHaveProperty('key', 'qwen3-1.7b');
+        expect(models[0]).toHaveProperty('name', 'Qwen3 1.7B (Q8_0)');
+        expect(models[0]).toHaveProperty('sizeGB');
+        expect(models[0]).toHaveProperty('minRAM');
+        expect(models[0]).toHaveProperty('quality');
+
+        expect(models[1]).toHaveProperty('key', 'qwen3-4b');
+        expect(models[1]).toHaveProperty('name', 'Qwen3 4B (Q4_K_M)');
+
+        expect(models[2]).toHaveProperty('key', 'qwen3-8b');
+        expect(models[2]).toHaveProperty('name', 'Qwen3 8B (Q4_K_M)');
     });
 
     it('should throw error for unknown model', async () => {
@@ -96,26 +92,20 @@ describe('Model Manager', () => {
     });
 
     it('should parse content-length correctly in downloadFile', async () => {
-        // Mock fs for missing model
         vi.spyOn(fs, 'existsSync').mockReturnValue(false);
         vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
         vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1000 });
 
-        // Spy on Number.parseInt
         const parseIntSpy = vi.spyOn(Number, 'parseInt');
 
-        // Mock axios with content-length
         const mockAxios = vi.mocked(await import('axios'));
         mockAxios.default = vi.fn().mockResolvedValue({
             data: { pipe: vi.fn(), on: vi.fn() },
             headers: { 'content-length': '12345' }
         });
 
-        // Mock cli-progress
         vi.mocked(await import('cli-progress')).SingleBar = vi.fn().mockImplementation(() => ({
-            start: vi.fn(),
-            update: vi.fn(),
-            stop: vi.fn()
+            start: vi.fn(), update: vi.fn(), stop: vi.fn()
         }));
 
         try {
@@ -130,26 +120,20 @@ describe('Model Manager', () => {
     });
 
     it('should handle missing content-length header', async () => {
-        // Mock fs for missing model
         vi.spyOn(fs, 'existsSync').mockReturnValue(false);
         vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
         vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1000 });
 
-        // Spy on Number.parseInt (should not be called)
         const parseIntSpy = vi.spyOn(Number, 'parseInt');
 
-        // Mock axios without content-length
         const mockAxios = vi.mocked(await import('axios'));
         mockAxios.default = vi.fn().mockResolvedValue({
             data: { pipe: vi.fn(), on: vi.fn() },
             headers: {}
         });
 
-        // Mock cli-progress
         vi.mocked(await import('cli-progress')).SingleBar = vi.fn().mockImplementation(() => ({
-            start: vi.fn(),
-            update: vi.fn(),
-            stop: vi.fn()
+            start: vi.fn(), update: vi.fn(), stop: vi.fn()
         }));
 
         try {
@@ -164,26 +148,20 @@ describe('Model Manager', () => {
     });
 
     it('should handle invalid content-length header', async () => {
-        // Mock fs for missing model
         vi.spyOn(fs, 'existsSync').mockReturnValue(false);
         vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
         vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1000 });
 
-        // Spy on Number.parseInt
         const parseIntSpy = vi.spyOn(Number, 'parseInt');
 
-        // Mock axios with invalid content-length
         const mockAxios = vi.mocked(await import('axios'));
         mockAxios.default = vi.fn().mockResolvedValue({
             data: { pipe: vi.fn(), on: vi.fn() },
             headers: { 'content-length': 'invalid' }
         });
 
-        // Mock cli-progress
         vi.mocked(await import('cli-progress')).SingleBar = vi.fn().mockImplementation(() => ({
-            start: vi.fn(),
-            update: vi.fn(),
-            stop: vi.fn()
+            start: vi.fn(), update: vi.fn(), stop: vi.fn()
         }));
 
         try {
@@ -194,40 +172,33 @@ describe('Model Manager', () => {
         }
 
         expect(parseIntSpy).toHaveBeenCalledWith('invalid', 10);
-        // Note: Number.parseInt('invalid', 10) returns NaN, which is handled as null since expectedSize will be NaN ? null : null -> null
         parseIntSpy.mockRestore();
     });
 
     it('should use specified modelKey instead of default', async () => {
-        // Mock fs for existing complete model
         vi.spyOn(fs, 'existsSync').mockReturnValue(true);
         vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1024 * 1024 * 100 });
 
-        const modelPath = await ensureModelExists('qwen2.5');
+        const modelPath = await ensureModelExists('qwen3-1.7b');
 
-        expect(modelPath).toContain('qwen2.5-coder-1.5b.gguf');
+        expect(modelPath).toContain('qwen3-1.7b-q8_0.gguf');
         expect(fs.existsSync).toHaveBeenCalled();
         expect(fs.statSync).toHaveBeenCalled();
     });
 
     it('should re-download model file that is exactly 1MB', async () => {
-        // Mock existsSync to return true, statSync to return exactly 1MB, and unlinkSync
         vi.spyOn(fs, 'existsSync').mockReturnValue(true);
-        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1024 * 1024 }); // Exactly 1MB
+        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1024 * 1024 });
         const unlinkSpy = vi.spyOn(fs, 'unlinkSync').mockImplementation(() => {});
 
-        // Mock axios
         const mockAxios = vi.mocked(await import('axios'));
         mockAxios.default = vi.fn().mockResolvedValue({
             data: { pipe: vi.fn(), on: vi.fn() },
             headers: { 'content-length': '1000' }
         });
 
-        // Mock cli-progress
         vi.mocked(await import('cli-progress')).SingleBar = vi.fn().mockImplementation(() => ({
-            start: vi.fn(),
-            update: vi.fn(),
-            stop: vi.fn()
+            start: vi.fn(), update: vi.fn(), stop: vi.fn()
         }));
 
         try {
@@ -241,30 +212,24 @@ describe('Model Manager', () => {
     });
 
     it('should handle skipSSLVerification parameter', async () => {
-        // Mock fs for missing model
         vi.spyOn(fs, 'existsSync').mockReturnValue(false);
         vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
         vi.spyOn(fs, 'statSync').mockReturnValue({ size: 1000 });
 
-        // Mock axios
         const mockAxios = vi.mocked(await import('axios'));
         mockAxios.default = vi.fn().mockResolvedValue({
             data: { pipe: vi.fn(), on: vi.fn() },
             headers: { 'content-length': '1000' }
         });
 
-        // Mock cli-progress
         vi.mocked(await import('cli-progress')).SingleBar = vi.fn().mockImplementation(() => ({
-            start: vi.fn(),
-            update: vi.fn(),
-            stop: vi.fn()
+            start: vi.fn(), update: vi.fn(), stop: vi.fn()
         }));
 
-        // Import the mocked Agent
         const { Agent: MockAgent } = await import('node:https');
 
         try {
-            await ensureModelExists('qwen3', true); // skipSSLVerification = true
+            await ensureModelExists('qwen3-4b', true);
         } catch (error) {
             console.log('Expected to fail in test environment');
             expect(error).toBeDefined();
@@ -274,25 +239,21 @@ describe('Model Manager', () => {
     });
 
     it('should handle download errors in ensureModelExists', async () => {
-        // Mock fs for missing model
         vi.spyOn(fs, 'existsSync').mockReturnValue(false);
         vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
 
-        // Mock axios to throw error
         const mockAxios = vi.mocked(await import('axios'));
         mockAxios.default = vi.fn().mockRejectedValue(new Error('Network error'));
 
-        await expect(ensureModelExists('qwen3')).rejects.toThrow('Network error');
+        await expect(ensureModelExists('qwen3-4b')).rejects.toThrow('Network error');
     });
 
     it('should handle incomplete download retry in downloadFile', async () => {
-        // Mock fs for missing model
         vi.spyOn(fs, 'existsSync').mockReturnValue(false);
         vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
-        vi.spyOn(fs, 'statSync').mockReturnValueOnce({ size: 500 }) // First call returns incomplete size
-                           .mockReturnValueOnce({ size: 1000 }); // Second call returns complete size
+        vi.spyOn(fs, 'statSync').mockReturnValueOnce({ size: 500 })
+                           .mockReturnValueOnce({ size: 1000 });
 
-        // Mock axios - first call succeeds, second call should not happen due to recursion
         const mockAxios = vi.mocked(await import('axios'));
         let callCount = 0;
         mockAxios.default = vi.fn().mockImplementation(() => {
@@ -306,16 +267,12 @@ describe('Model Manager', () => {
             throw new Error('Should not be called');
         });
 
-        // Mock cli-progress
         vi.mocked(await import('cli-progress')).SingleBar = vi.fn().mockImplementation(() => ({
-            start: vi.fn(),
-            update: vi.fn(),
-            stop: vi.fn()
+            start: vi.fn(), update: vi.fn(), stop: vi.fn()
         }));
 
-        // This should not throw an error due to the retry logic
         try {
-            await ensureModelExists('qwen3');
+            await ensureModelExists('qwen3-4b');
         } catch (error) {
             console.log('Expected to fail in test environment due to mocking');
             expect(error).toBeDefined();
@@ -323,28 +280,22 @@ describe('Model Manager', () => {
     });
 
     it('should handle empty download file', async () => {
-        // Mock fs for missing model
         vi.spyOn(fs, 'existsSync').mockReturnValue(false);
         vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
-        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 0 }); // Empty file
+        vi.spyOn(fs, 'statSync').mockReturnValue({ size: 0 });
 
-        // Mock axios
         const mockAxios = vi.mocked(await import('axios'));
         mockAxios.default = vi.fn().mockResolvedValue({
             data: { pipe: vi.fn(), on: vi.fn() },
             headers: { 'content-length': '1000' }
         });
 
-        // Mock cli-progress
         vi.mocked(await import('cli-progress')).SingleBar = vi.fn().mockImplementation(() => ({
-            start: vi.fn(),
-            update: vi.fn(),
-            stop: vi.fn()
+            start: vi.fn(), update: vi.fn(), stop: vi.fn()
         }));
 
-        // Should retry due to empty file
         try {
-            await ensureModelExists('qwen3');
+            await ensureModelExists('qwen3-4b');
         } catch (error) {
             console.log('Expected to fail in test environment');
             expect(error).toBeDefined();
@@ -352,7 +303,6 @@ describe('Model Manager', () => {
     });
 
     it('should handle writer error in downloadFile', async () => {
-        // Mock fs for missing model
         vi.spyOn(fs, 'existsSync').mockReturnValue(false);
         vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
         const createWriteStreamSpy = vi.spyOn(fs, 'createWriteStream').mockReturnValue({
@@ -361,33 +311,53 @@ describe('Model Manager', () => {
             })
         });
 
-        // Mock axios
         const mockAxios = vi.mocked(await import('axios'));
         mockAxios.default = vi.fn().mockResolvedValue({
             data: { pipe: vi.fn(), on: vi.fn() },
             headers: { 'content-length': '1000' }
         });
 
-        // Mock cli-progress
         vi.mocked(await import('cli-progress')).SingleBar = vi.fn().mockImplementation(() => ({
-            start: vi.fn(),
-            update: vi.fn(),
-            stop: vi.fn()
+            start: vi.fn(), update: vi.fn(), stop: vi.fn()
         }));
 
-        await expect(ensureModelExists('qwen3')).rejects.toThrow('Write error');
+        await expect(ensureModelExists('qwen3-4b')).rejects.toThrow('Write error');
         expect(createWriteStreamSpy).toHaveBeenCalled();
     });
 
     it('should handle axios timeout error', async () => {
-        // Mock fs for missing model
         vi.spyOn(fs, 'existsSync').mockReturnValue(false);
         vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
 
-        // Mock axios to throw timeout error
         const mockAxios = vi.mocked(await import('axios'));
         mockAxios.default = vi.fn().mockRejectedValue(new Error('Timeout'));
 
-        await expect(ensureModelExists('qwen3')).rejects.toThrow('Timeout');
+        await expect(ensureModelExists('qwen3-4b')).rejects.toThrow('Timeout');
+    });
+
+    describe('Hardware Detection', () => {
+        it('should return hardware info', () => {
+            const hw = detectHardware();
+            expect(hw).toHaveProperty('totalRAMGB');
+            expect(hw).toHaveProperty('freeRAMGB');
+            expect(hw).toHaveProperty('cpuModel');
+            expect(hw).toHaveProperty('cpuCores');
+            expect(hw).toHaveProperty('platform');
+            expect(hw).toHaveProperty('arch');
+            expect(typeof hw.totalRAMGB).toBe('number');
+            expect(hw.totalRAMGB).toBeGreaterThan(0);
+        });
+
+        it('should recommend a model based on RAM', () => {
+            const result = recommendModel();
+            expect(result).toHaveProperty('key');
+            expect(result).toHaveProperty('config');
+            expect(result).toHaveProperty('hardware');
+            expect(result.config).toHaveProperty('name');
+            expect(result.config).toHaveProperty('sizeGB');
+            // The recommended model key should be one of the available models
+            const availableKeys = getAvailableModels().map(m => m.key);
+            expect(availableKeys).toContain(result.key);
+        });
     });
 });

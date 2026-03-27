@@ -30,17 +30,17 @@ describe('Config Module', () => {
 
             const config = loadConfig();
 
-            expect(config).toEqual({ selectedModel: 'qwen3' });
+            expect(config).toEqual({ selectedModel: 'qwen3-4b' });
             expect(mockFs.existsSync).toHaveBeenCalled();
         });
 
         it('should load config from file when it exists', () => {
             mockFs.existsSync.mockReturnValue(true);
-            mockFs.readFileSync.mockReturnValue(JSON.stringify({ selectedModel: 'qwen2.5' }));
+            mockFs.readFileSync.mockReturnValue(JSON.stringify({ selectedModel: 'qwen3-8b' }));
 
             const config = loadConfig();
 
-            expect(config).toEqual({ selectedModel: 'qwen2.5' });
+            expect(config).toEqual({ selectedModel: 'qwen3-8b' });
             expect(mockFs.readFileSync).toHaveBeenCalled();
         });
 
@@ -50,7 +50,7 @@ describe('Config Module', () => {
 
             const config = loadConfig();
 
-            expect(config).toEqual({ selectedModel: 'qwen3', someOtherSetting: 'value' });
+            expect(config).toEqual({ selectedModel: 'qwen3-4b', someOtherSetting: 'value' });
         });
 
         it('should return default config when JSON parsing fails', () => {
@@ -62,7 +62,7 @@ describe('Config Module', () => {
 
             const config = loadConfig();
 
-            expect(config).toEqual({ selectedModel: 'qwen3' });
+            expect(config).toEqual({ selectedModel: 'qwen3-4b' });
             expect(consoleSpy).toHaveBeenCalledWith('Failed to load config, using defaults:', expect.any(String));
 
             consoleSpy.mockRestore();
@@ -71,7 +71,7 @@ describe('Config Module', () => {
 
     describe('saveConfig', () => {
         it('should save config to file', () => {
-            const config = { selectedModel: 'qwen2.5', testSetting: 'value' };
+            const config = { selectedModel: 'qwen3-8b', testSetting: 'value' };
 
             saveConfig(config);
 
@@ -88,7 +88,7 @@ describe('Config Module', () => {
 
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-            saveConfig({ selectedModel: 'qwen2.5' });
+            saveConfig({ selectedModel: 'qwen3-8b' });
 
             expect(consoleSpy).toHaveBeenCalledWith('Failed to save config:', 'Write error');
 
@@ -98,11 +98,11 @@ describe('Config Module', () => {
 
     describe('setSelectedModel', () => {
         it('should set selected model', () => {
-            setSelectedModel('qwen2.5');
+            setSelectedModel('qwen3-1.7b');
 
             expect(mockFs.writeFileSync).toHaveBeenCalledWith(
                 expect.stringContaining('config.json'),
-                JSON.stringify({ selectedModel: 'qwen2.5' }, null, 2)
+                JSON.stringify({ selectedModel: 'qwen3-1.7b' }, null, 2)
             );
         });
     });
@@ -110,11 +110,11 @@ describe('Config Module', () => {
     describe('getSelectedModel', () => {
         it('should get selected model from config', () => {
             mockFs.existsSync.mockReturnValue(true);
-            mockFs.readFileSync.mockReturnValue(JSON.stringify({ selectedModel: 'qwen2.5' }));
+            mockFs.readFileSync.mockReturnValue(JSON.stringify({ selectedModel: 'qwen3-8b' }));
 
             const model = getSelectedModel();
 
-            expect(model).toBe('qwen2.5');
+            expect(model).toBe('qwen3-8b');
         });
     });
 });

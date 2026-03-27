@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import ora from 'ora';
-import { ensureModelExists, getAvailableModels } from './lib/model-manager.js';
+import { ensureModelExists, getAvailableModels, detectHardware, recommendModel } from './lib/model-manager.js';
 import { getStagedDiff, commitChanges } from './lib/git.js';
 import { generateCommitMessage, refineCommitMessage } from './lib/ai-local.js';
 import { setSelectedModel, getSelectedModel } from './lib/config.js';
@@ -22,6 +22,13 @@ program
         // Show current model
         const currentModel = getAvailableModels().find(m => m.key === getSelectedModel());
         console.log(chalk.blue(`📋 Using model: ${currentModel?.name || 'Unknown'}`));
+
+        // Show hardware recommendation hint if using a suboptimal model
+        const { key: recommendedKey } = recommendModel();
+        if (currentModel && recommendedKey !== currentModel.key) {
+            const recommendedModel = getAvailableModels().find(m => m.key === recommendedKey);
+            console.log(chalk.yellow(`💡 Tip: Run "ai-commit auto-select" to use ${recommendedModel?.name || recommendedKey} (recommended for your hardware)`));
+        }
         console.log('');
 
         try {
@@ -210,6 +217,47 @@ program
         }
     });
 
+// Auto-select model based on hardware
+program
+    .command('auto-select')
+    .description('Detect hardware and automatically select the best model')
+    .option('--insecure', 'Skip SSL certificate verification during download')
+    .action(async (options) => {
+        console.log(chalk.bold.cyan('\n 🔍 Hardware Detection \n'));
+
+        const { key, config, hardware, warning } = recommendModel();
+
+        console.log(chalk.blue('System Info:'));
+        console.log(chalk.gray(`  CPU: ${hardware.cpuModel} (${hardware.cpuCores} cores)`));
+        console.log(chalk.gray(`  RAM: ${hardware.totalRAMGB} GB total, ${hardware.freeRAMGB} GB free`));
+        console.log(chalk.gray(`  OS:  ${hardware.platform} ${hardware.arch}`));
+        console.log('');
+
+        if (warning) {
+            console.log(chalk.yellow(`⚠️  ${warning}`));
+        }
+
+        console.log(chalk.green(`✔ Recommended model: ${config.name} (${config.sizeGB} GB download)`));
+
+        const currentModel = getSelectedModel();
+        if (currentModel === key) {
+            console.log(chalk.gray(`  Already selected.`));
+        } else {
+            setSelectedModel(key);
+            console.log(chalk.green(`✔ Model set to: ${config.name}`));
+        }
+
+        // Pre-download
+        try {
+            console.log(chalk.blue('\nChecking if model is downloaded...'));
+            await ensureModelExists(key, options.insecure);
+            console.log(chalk.green('✔ Model is ready to use!'));
+        } catch (error) {
+            console.log(chalk.red('❌ Failed to download model:'), error.message);
+            process.exit(1);
+        }
+    });
+
 // Help command
 program
     .command('help')
@@ -225,8 +273,14 @@ program
         console.log('  Set the AI model to use. Available models:');
         const availableModels = getAvailableModels();
         availableModels.forEach(model => {
-            console.log(chalk.gray(`    ${model.key}: ${model.name}`));
+            console.log(chalk.gray(`    ${model.key}: ${model.name} (${model.sizeGB} GB, needs ${model.minRAM}+ GB RAM)`));
         });
+        console.log(chalk.gray('  Options:'));
+        console.log(chalk.gray('    --insecure    Skip SSL certificate verification during download'));
+        console.log('');
+
+        console.log(chalk.yellow('ai-commit auto-select [options]'));
+        console.log('  Detect hardware and automatically select the best model');
         console.log(chalk.gray('  Options:'));
         console.log(chalk.gray('    --insecure    Skip SSL certificate verification during download'));
         console.log('');
