@@ -11,6 +11,28 @@ import { setSelectedModel, getSelectedModel } from './lib/config.js';
 
 const program = new Command();
 
+// Format timing breakdown for display
+function formatTiming(timing) {
+    if (!timing) return '';
+    const labels = {
+        loading: '📦 Model load',
+        context: '🧠 Context',
+        analyzing: '🔍 Analysis',
+        generating: '✍️  Generation',
+        refining: '✍️  Refinement'
+    };
+    const parts = [];
+    for (const [key, ms] of Object.entries(timing)) {
+        if (key === 'total' || key === 'tokens') continue;
+        const label = labels[key] || key;
+        parts.push(`${label}: ${(ms / 1000).toFixed(1)}s`);
+    }
+    if (timing.tokens) {
+        parts.push(`🔤 Tokens: ${timing.tokens}`);
+    }
+    return parts.join('  │  ');
+}
+
 // Default command - generate commit message
 program
     .name('ai-commit')
@@ -61,16 +83,16 @@ program
                 spinner.text = `${currentStage} [${globalTimeStr}]`;
             }, 1000);
 
-            const generatedMessage = await generateCommitMessage(modelPath, diff, (stage, detail) => {
+            const result = await generateCommitMessage(modelPath, diff, (stage, detail) => {
                 currentStage = detail;
-                // Timer globale continuerà ad aggiornare il tempo totale
             });
 
             clearInterval(timerInterval);
             const totalSeconds = ((Date.now() - globalStartTime) / 1000).toFixed(1);
             spinner.succeed(`Generated in ${totalSeconds}s`);
+            console.log(chalk.dim(`  ${formatTiming(result.timing)}`));
 
-            let currentMessage = generatedMessage;
+            let currentMessage = result.message;
             let continueLoop = true;
 
             while (continueLoop) {
@@ -119,6 +141,8 @@ program
                     clearInterval(timerInterval);
                     const regenerateSeconds = ((Date.now() - regenerateStartTime) / 1000).toFixed(1);
                     spinner.succeed(`Regenerated in ${regenerateSeconds}s`);
+                    console.log(chalk.dim(`  ${formatTiming(currentMessage.timing)}`));
+                    currentMessage = currentMessage.message;
                 } else if (action === 'suggest') {
                     const { feedback } = await inquirer.prompt([
                         {
@@ -150,6 +174,8 @@ program
                         clearInterval(timerInterval);
                         const suggestSeconds = ((Date.now() - suggestStartTime) / 1000).toFixed(1);
                         spinner.succeed(`Refined in ${suggestSeconds}s`);
+                        console.log(chalk.dim(`  ${formatTiming(currentMessage.timing)}`));
+                        currentMessage = currentMessage.message;
                     }
                 } else if (action === 'edit') {
                     const { newMessage } = await inquirer.prompt([

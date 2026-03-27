@@ -36,7 +36,7 @@ describe('AI Local Module', () => {
         mockLlamaChatSession.mockImplementation(function () { return mSession; });
     });
 
-    it('generateCommitMessage should return parsed JSON message', async () => {
+    it('generateCommitMessage should return parsed JSON message with timing', async () => {
         const mockResponse = JSON.stringify({ commit_message: 'feat(auth): add login endpoint' });
         mSession.prompt.mockResolvedValue(mockResponse);
 
@@ -44,7 +44,10 @@ describe('AI Local Module', () => {
 
         expect(mLlama.loadModel).toHaveBeenCalledWith({ modelPath: '/path/to/model' });
         expect(mSession.prompt).toHaveBeenCalled();
-        expect(result).toBe('feat(auth): add login endpoint');
+        expect(result.message).toBe('feat(auth): add login endpoint');
+        expect(result.timing).toBeDefined();
+        expect(result.timing.total).toBeGreaterThanOrEqual(0);
+        expect(result.timing).toHaveProperty('tokens');
     });
 
     it('should use digest for large diffs instead of raw diff', async () => {
@@ -67,8 +70,7 @@ describe('AI Local Module', () => {
 +console.log('hello');`;
         const result = await generateCommitMessage('/path/to/model', diff, vi.fn());
 
-        // Should return a fallback conventional commit since model output is not valid
-        expect(result).toMatch(/^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)/);
+        expect(result.message).toMatch(/^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)/);
     });
 
     it('should call onProgress callback with updates', async () => {
@@ -91,8 +93,7 @@ describe('AI Local Module', () => {
 +const x = 1;`;
         const result = await generateCommitMessage('/path/to/model', diff, vi.fn());
 
-        // Should return a fallback since JSON is invalid and raw text is not conventional
-        expect(result).toMatch(/^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)/);
+        expect(result.message).toMatch(/^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)/);
     });
 
     it('should extract file names from diff and include in prompt context', async () => {
@@ -172,14 +173,16 @@ index abcdef0..1234567 100644
     });
 
     describe('refineCommitMessage', () => {
-        it('should return parsed refined message', async () => {
+        it('should return parsed refined message with timing', async () => {
             const mockResponse = JSON.stringify({ refined_message: 'feat(api): improved commit' });
             mSession.prompt.mockResolvedValue(mockResponse);
 
             const result = await refineCommitMessage('/path/to/model', 'feat: original', 'make it more specific', 'diff content', vi.fn());
 
             expect(mSession.prompt).toHaveBeenCalled();
-            expect(result).toBe('feat(api): improved commit');
+            expect(result.message).toBe('feat(api): improved commit');
+            expect(result.timing).toBeDefined();
+            expect(result.timing.total).toBeGreaterThanOrEqual(0);
         });
 
         it('should use digest for large diffs in refinement', async () => {
@@ -220,8 +223,7 @@ index abcdef0..1234567 100644
 
             const result = await refineCommitMessage('/path/to/model', 'feat: original', 'feedback', 'diff', vi.fn());
 
-            // Should fall back to original since output is not conventional and not parseable
-            expect(result).toBe('feat: original');
+            expect(result.message).toBe('feat: original');
         });
 
         it('should use temperature 0.5 for refinement', async () => {
