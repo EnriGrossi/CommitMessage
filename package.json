@@ -23,6 +23,9 @@
   },
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.15",
     "vitest": "^4.0.15"
