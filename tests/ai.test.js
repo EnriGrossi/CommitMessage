@@ -261,4 +261,241 @@ index abcdef0..1234567 100644
                 .rejects.toThrow('Session creation failed');
         });
     });
+
+    describe('inferCommitType (via generateCommitMessage)', () => {
+        it('should infer "test" type for test-only files', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'test(utils): add parser tests' }));
+
+            const diff = `diff --git a/tests/utils.test.js b/tests/utils.test.js
++describe('utils', () => { it('works', () => {}); });`;
+
+            const result = await generateCommitMessage('/path/to/model', diff, vi.fn());
+            const promptArg = mSession.prompt.mock.calls[0][0];
+            expect(promptArg).toContain('Suggested type: test');
+        });
+
+        it('should infer "docs" type for doc-only files', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'docs(readme): update guide' }));
+
+            const diff = `diff --git a/README.md b/README.md
++## New Section
++Some documentation here`;
+
+            const result = await generateCommitMessage('/path/to/model', diff, vi.fn());
+            const promptArg = mSession.prompt.mock.calls[0][0];
+            expect(promptArg).toContain('Suggested type: docs');
+        });
+
+        it('should infer "chore" type for config-only files', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'chore(config): update settings' }));
+
+            const diff = `diff --git a/config.json b/config.json
++{ "key": "value" }
+diff --git a/.gitignore b/.gitignore
++node_modules/`;
+
+            const result = await generateCommitMessage('/path/to/model', diff, vi.fn());
+            const promptArg = mSession.prompt.mock.calls[0][0];
+            expect(promptArg).toContain('Suggested type: chore');
+        });
+
+        it('should not suggest type for mixed file types', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'feat(src): add feature' }));
+
+            const diff = `diff --git a/src/app.js b/src/app.js
++const x = 1;
+diff --git a/README.md b/README.md
++docs update`;
+
+            await generateCommitMessage('/path/to/model', diff, vi.fn());
+            const promptArg = mSession.prompt.mock.calls[0][0];
+            expect(promptArg).not.toContain('Suggested type:');
+        });
+    });
+
+    describe('inferScope (via generateCommitMessage)', () => {
+        it('should infer scope from single file parent directory', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'feat(lib): add helper' }));
+
+            const diff = `diff --git a/src/lib/helper.js b/src/lib/helper.js
++export function helper() {}`;
+
+            await generateCommitMessage('/path/to/model', diff, vi.fn());
+            const promptArg = mSession.prompt.mock.calls[0][0];
+            expect(promptArg).toContain('Suggested scope: lib');
+        });
+
+        it('should infer scope from single root file name', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'chore(config): update' }));
+
+            const diff = `diff --git a/config.json b/config.json
++{ "new": true }`;
+
+            await generateCommitMessage('/path/to/model', diff, vi.fn());
+            const promptArg = mSession.prompt.mock.calls[0][0];
+            expect(promptArg).toContain('Suggested scope: config');
+        });
+
+        it('should infer scope from common directory across multiple files', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'feat(lib): update modules' }));
+
+            const diff = `diff --git a/src/lib/a.js b/src/lib/a.js
++const a = 1;
+diff --git a/src/lib/b.js b/src/lib/b.js
++const b = 2;`;
+
+            await generateCommitMessage('/path/to/model', diff, vi.fn());
+            const promptArg = mSession.prompt.mock.calls[0][0];
+            expect(promptArg).toContain('Suggested scope: lib');
+        });
+
+        it('should infer scope from common root when dirs differ', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'feat(src): update' }));
+
+            const diff = `diff --git a/src/api/routes.js b/src/api/routes.js
++app.get('/');
+diff --git a/src/lib/utils.js b/src/lib/utils.js
++export const x = 1;`;
+
+            await generateCommitMessage('/path/to/model', diff, vi.fn());
+            const promptArg = mSession.prompt.mock.calls[0][0];
+            expect(promptArg).toContain('Suggested scope: src');
+        });
+
+        it('should not suggest scope when files have no common root', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'chore: update files' }));
+
+            const diff = `diff --git a/frontend/app.js b/frontend/app.js
++const a = 1;
+diff --git a/backend/server.js b/backend/server.js
++const b = 2;`;
+
+            await generateCommitMessage('/path/to/model', diff, vi.fn());
+            const promptArg = mSession.prompt.mock.calls[0][0];
+            expect(promptArg).not.toContain('Suggested scope:');
+        });
+    });
+
+    describe('sanitizeCommitMessage (via generateCommitMessage)', () => {
+        it('should extract conventional commit after cleaning quotes and whitespace', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({
+                commit_message: '  "feat(api): add user endpoint"  '
+            }));
+
+            const diff = `diff --git a/src/api.js b/src/api.js
++app.get('/users');`;
+            const result = await generateCommitMessage('/path/to/model', diff, vi.fn());
+            expect(result.message).toBe('feat(api): add user endpoint');
+        });
+
+        it('should strip surrounding quotes from message', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({
+                commit_message: '"fix(db): handle null values"'
+            }));
+
+            const result = await generateCommitMessage('/path/to/model', 'diff content', vi.fn());
+            expect(result.message).toBe('fix(db): handle null values');
+        });
+
+        it('should take only first line of multiline message', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({
+                commit_message: 'feat(auth): add login\n\nThis adds a login feature with JWT support'
+            }));
+
+            const result = await generateCommitMessage('/path/to/model', 'diff content', vi.fn());
+            expect(result.message).toBe('feat(auth): add login');
+        });
+
+        it('should return fallback when commit_message is empty', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: '' }));
+
+            const diff = `diff --git a/src/app.js b/src/app.js
++const x = 1;`;
+            const result = await generateCommitMessage('/path/to/model', diff, vi.fn());
+            expect(result.message).toMatch(/^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)/);
+        });
+    });
+
+    describe('extractMeaningfulLines (via generateCommitMessage)', () => {
+        it('should filter noise lines like braces and comments from KEY CHANGES', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'feat(app): add feature' }));
+
+            const diff = `diff --git a/app.js b/app.js
++{
++}
++// this is a comment
++/* block comment */
++* continuation
++import fs from 'fs';
++require('path');
++const meaningfulCode = true;
++);
++};`;
+
+            await generateCommitMessage('/path/to/model', diff, vi.fn());
+            const promptArg = mSession.prompt.mock.calls[0][0];
+            // Extract just the KEY CHANGES section
+            const keyChangesMatch = promptArg.match(/KEY CHANGES:\n([\s\S]*?)\n\nDIFF:/);
+            const keyChanges = keyChangesMatch ? keyChangesMatch[1] : '';
+            // Only the meaningful line should appear in KEY CHANGES
+            expect(keyChanges).toContain('const meaningfulCode = true');
+            expect(keyChanges).not.toContain('// this is a comment');
+            expect(keyChanges).not.toContain('import fs');
+            expect(keyChanges).not.toContain('require(');
+        });
+
+        it('should filter short lines (<=3 chars)', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'feat(app): update' }));
+
+            const diff = `diff --git a/app.js b/app.js
++ab
++abcd`;
+
+            await generateCommitMessage('/path/to/model', diff, vi.fn());
+            const promptArg = mSession.prompt.mock.calls[0][0];
+            expect(promptArg).toContain('abcd');
+            // 'ab' is only 2 chars, should be filtered
+        });
+    });
+
+    describe('timing tracking', () => {
+        it('should track timing across stage transitions', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'feat: test' }));
+
+            const result = await generateCommitMessage('/path/to/model', 'diff content', vi.fn());
+
+            expect(result.timing).toHaveProperty('loading');
+            expect(result.timing).toHaveProperty('context');
+            expect(result.timing).toHaveProperty('analyzing');
+            expect(result.timing).toHaveProperty('generating');
+            expect(result.timing).toHaveProperty('total');
+            expect(result.timing).toHaveProperty('tokens');
+            expect(result.timing.total).toBeGreaterThanOrEqual(0);
+        });
+
+        it('should track timing for refinement', async () => {
+            mSession.prompt.mockResolvedValue(JSON.stringify({ refined_message: 'feat: refined' }));
+
+            const result = await refineCommitMessage('/path/to/model', 'feat: original', 'feedback', 'diff', vi.fn());
+
+            expect(result.timing).toHaveProperty('refining');
+            expect(result.timing).toHaveProperty('total');
+            expect(result.timing).toHaveProperty('tokens');
+        });
+    });
+
+    describe('logger suppression (via getLlama options)', () => {
+        it('should pass logLevel and logger to getLlama', async () => {
+            const { getLlama } = await import('node-llama-cpp');
+            mSession.prompt.mockResolvedValue(JSON.stringify({ commit_message: 'feat: test' }));
+
+            // Force a new model load by using a unique path
+            await generateCommitMessage('/unique/path/for/logger/test', 'diff', vi.fn());
+
+            expect(getLlama).toHaveBeenCalledWith(expect.objectContaining({
+                logLevel: 1, // LlamaLogLevel.warn
+                logger: expect.any(Function)
+            }));
+        });
+    });
 });
