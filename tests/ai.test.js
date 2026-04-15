@@ -4,7 +4,7 @@ import { generateCommitMessage, refineCommitMessage } from '../lib/ai-local.js';
 // Mock objects using vi.hoisted
 const { mSession, mLlama, mContext, mModel, mockLlamaChatSession } = vi.hoisted(() => {
     const session = { prompt: vi.fn() };
-    const context = { getSequence: vi.fn() };
+    const context = { getSequence: vi.fn(), dispose: vi.fn().mockResolvedValue(undefined) };
     const model = { createContext: vi.fn().mockResolvedValue(context) };
     const llama = { loadModel: vi.fn().mockResolvedValue(model) };
     const chatSession = vi.fn(function () { return session; });
