@@ -136,7 +136,7 @@ program
                         const globalSeconds = Math.floor((Date.now() - globalStartTime) / 1000);
                         let globalTimeStr = globalSeconds < 60 ? `${globalSeconds}s` : `${Math.floor(globalSeconds / 60)}m ${globalSeconds % 60}s`;
                         spinner.text = `${detail} [${globalTimeStr}]`;
-                    });
+                    }, { regenerate: true });
 
                     clearInterval(timerInterval);
                     const regenerateSeconds = ((Date.now() - regenerateStartTime) / 1000).toFixed(1);
