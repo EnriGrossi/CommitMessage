@@ -75,7 +75,7 @@ describe('Model Manager', () => {
         expect(models).toHaveLength(3);
 
         expect(models[0]).toHaveProperty('key', 'qwen3-1.7b');
-        expect(models[0]).toHaveProperty('name', 'Qwen3 1.7B (Q8_0)');
+        expect(models[0]).toHaveProperty('name', 'Qwen3 1.7B (Q4_K_M)');
         expect(models[0]).toHaveProperty('sizeGB');
         expect(models[0]).toHaveProperty('minRAM');
         expect(models[0]).toHaveProperty('quality');
@@ -181,7 +181,7 @@ describe('Model Manager', () => {
 
         const modelPath = await ensureModelExists('qwen3-1.7b');
 
-        expect(modelPath).toContain('qwen3-1.7b-q8_0.gguf');
+        expect(modelPath).toContain('qwen3-1.7b-q4_k_m.gguf');
         expect(fs.existsSync).toHaveBeenCalled();
         expect(fs.statSync).toHaveBeenCalled();
     });

@@ -43,6 +43,10 @@ describe('AI Local Module', () => {
         const result = await generateCommitMessage('/path/to/model', 'diff content', vi.fn());
 
         expect(mLlama.loadModel).toHaveBeenCalledWith({ modelPath: '/path/to/model' });
+        expect(mModel.createContext).toHaveBeenCalledWith(expect.objectContaining({
+            contextSize: 2048,
+            threads: expect.any(Number)
+        }));
         expect(mSession.prompt).toHaveBeenCalled();
         expect(result.message).toBe('feat(auth): add login endpoint');
         expect(result.timing).toBeDefined();
@@ -154,7 +158,7 @@ index abcdef0..1234567 100644
         const promptCall = mSession.prompt.mock.calls[0];
         expect(promptCall[1]).toEqual(expect.objectContaining({
             temperature: 0.6,
-            maxTokens: 100
+            maxTokens: 70
         }));
     });
 
@@ -234,7 +238,7 @@ index abcdef0..1234567 100644
             const promptCall = mSession.prompt.mock.calls[0];
             expect(promptCall[1]).toEqual(expect.objectContaining({
                 temperature: 0.5,
-                maxTokens: 100
+                maxTokens: 70
             }));
         });
 

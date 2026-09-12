@@ -78,7 +78,7 @@ The tool ships with three Qwen3 model options, all from the official Hugging Fac
 
 | Model Key | Name | Size | Min RAM | Best For |
 |-----------|------|------|---------|----------|
-| `qwen3-1.7b` | Qwen3 1.7B (Q8_0) | 1.83 GB | 4 GB | Low-end machines, quick generation |
+| `qwen3-1.7b` | Qwen3 1.7B (Q4_K_M) | 1.05 GB | 4 GB | Low-end machines, quick generation |
 | `qwen3-4b` | Qwen3 4B (Q4_K_M) | 2.5 GB | 8 GB | Default, good balance of speed and quality |
 | `qwen3-8b` | Qwen3 8B (Q4_K_M) | 5.03 GB | 12 GB | Best quality, recommended if you have the RAM |
 
