@@ -42,7 +42,10 @@ describe('AI Local Module', () => {
 
         const result = await generateCommitMessage('/path/to/model', 'diff content', vi.fn());
 
-        expect(mLlama.loadModel).toHaveBeenCalledWith({ modelPath: '/path/to/model' });
+        expect(mLlama.loadModel).toHaveBeenCalledWith({
+            modelPath: '/path/to/model',
+            gpuLayers: 'max'
+        });
         expect(mModel.createContext).toHaveBeenCalledWith(expect.objectContaining({
             contextSize: 2048,
             threads: expect.any(Number)

@@ -54,12 +54,12 @@ program
         console.log('');
 
         try {
-            // 1. Ensure Model Exists
-            // limit spinner usage here as the download has its own progress bar
-            const modelPath = await ensureModelExists();
+            // 1. Concurrently check staged diff and ensure model is ready
+            const [diff, modelPath] = await Promise.all([
+                getStagedDiff(),
+                ensureModelExists()
+            ]);
 
-            // 2. Get Staged Diff
-            const diff = await getStagedDiff();
             if (!diff || diff.trim().length === 0) {
                 console.log(chalk.yellow('ℹ️  No staged changes found. Use "git add" to stage files first.'));
                 return;
